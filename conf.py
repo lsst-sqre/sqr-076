@@ -8,10 +8,10 @@ https://documenteer.lsst.io/technotes/configuration.html
 
 from documenteer.conf.technotebeta import *  # noqa: F401, F403
 
-exclude_patterns += [".venv", ".tox"]
+exclude_patterns += [".venv", ".tox"]  # noqa: F405
 
-extensions.append("sphinxcontrib.mermaid")
-extensions.append("documenteer.sphinxext")
+extensions.append("sphinxcontrib.mermaid")  # noqa: F405
+extensions.append("documenteer.sphinxext")  # noqa: F405
 
 # https://github.com/mgaitan/sphinxcontrib-mermaid/issues/110
 mermaid_version = "9.4.0"
