@@ -1,6 +1,8 @@
 .PHONY:
 init:
-	pip install -r requirements.txt
+	rm -rf .tox
+	pip install -U tox pre-commit
+	pre-commit install
 
 .PHONY:
 html:

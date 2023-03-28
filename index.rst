@@ -6,6 +6,8 @@ Shared Pydantic schemas as the basis for Kafka/Avro messages in SQuaRE Roundtabl
 
    Many SQuaRE applications in Roundtable, notably the Squarebot Slack bot, use Kafka for sharing messages. Those Kafka messages are encoded in Avro, and those Avro schemas are shared between applications at runtime with the Confluent Schema Registry. This existing system lacks a story for sharing schemas between applications during development. In SQR-075 we described a monorepo architecture for publishing an application's Pydantic schemas in a Python library that an app's clients could use. This technote describes how shared Pydantic schemas can also support the development of Kafka consumers.
 
+.. _background:
+
 Background
 ==========
 
@@ -33,5 +35,21 @@ This technote explores this issue, including the specific questions of:
 - How can Pydantic_ models sync to the Confluent Schema Registry with Kafkit?
 - How can Pydantic_ models be shared between Python-based Kafka producers and consumers?
 
+Converting between Pydantic models and Avro schemas
+===================================================
+
+At present, two Python packages provide the tools to convert between Pydantic models and Avro schemas: `Dataclasses Avro Schema`_ and `pydantic-avro`_.
+Overall `Dataclasses Avro Schema`_ appears to be more actively maintained.
+There are also `reports <https://github.com/godatadriven/pydantic-avro/issues/35>`__ that `pydantic-avro`_ does not work with ``typing.Optional`` fields, which are quite common in our models.
+
+Kafkit handling of Pydantic models
+==================================
+
+In this operational model, Kafka message schemas are treated entirely as Pydantic_ models within an application's codebase.
+Only within Kafkit_ are these Pydantic models converted into Avro schemas, both for storage in the Schema Registry and for encoding/decoding messages.
+This design ensures that the Avro conversion is a detail that applications do not need to be concerned with.
+
 .. _Kafkit: https://kafkit.lsst.io
 .. _Pydantic: https://docs.pydantic.dev
+.. _`Dataclasses Avro Schema`: https://marcosschroh.github.io/dataclasses-avroschema/
+.. _`pydantic-avro`: https://github.com/godatadriven/pydantic-avro
