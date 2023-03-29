@@ -6,7 +6,7 @@ init:
 
 .PHONY:
 html:
-	tox run -e html
+	tox run -e lint,demo,html
 
 .PHONY:
 clean:
