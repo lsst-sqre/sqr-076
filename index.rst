@@ -70,9 +70,9 @@ The packages differ in their handling of documentation.
 `Dataclasses Avro Schema`_ includes the classes documentation on the top-level record in the schema, but omit documentation on individual fields.
 `pydantic-avro`_ does the inverse.
 
-Another area where the packages differ is that `pydantic-avro`_ makes the schema's namespace the same as the Python class's name, whereas `Dataclasses Avro Schema`_ omits setting a namespace.
-Both use the class's name for the schema's name.
-It would be easier for Kafkit_ code to exert control over the schema naming and namespace, though, so this difference is moot.
+Another area where the packages differ is that `pydantic-avro`_ makes the schema's namespace the same as the Python class's name, whereas `Dataclasses Avro Schema`_ omits setting a namespace by default.
+Both use the class's name for the schema's name by default.
+However, notice how both the ``namespace`` and ``schema_name`` fields in the Pydantic model ``Meta`` class provide control over the Avro schema's fully-qualified name.
 
 We will adopt `Dataclasses Avro Schema`_ since the package is more actively maintained and has a larger feature set, but switching to `pydantic-avro`_ would be a simple change if desired.
 
@@ -83,7 +83,105 @@ In this operational model, Kafka message schemas are treated entirely as Pydanti
 Only within Kafkit_ are these Pydantic models converted into Avro schemas, both for storage in the Schema Registry and for encoding/decoding messages.
 This design ensures that the Avro conversion is a detail that applications do not need to be concerned with.
 
+Analogy to the RecordNameSchemaManager
+--------------------------------------
 
+To integrate Pydantic models into Kafkit_, we can follow the pattern of Kafkit's `~kafkit.registry.manager.RecordNameSchemaManager`.
+The `~kafkit.registry.manager.RecordNameSchemaManager` is designed around the operational concept that a Kafka producer stores all of its schemas as Avro schema (JSON) files within the application package.
+`~kafkit.registry.manager.RecordNameSchemaManager` synchronzes those schemas with the Schema Registry following the RecordNameStrategy naming convention where the fully-qualified name of the schema is the subject name in the Schema Registry.\ [#topicnamestrategy]_ Then the producer application can serialize messages with the `~kafkit.registry.manager.RecordNameSchemaManager.serialize` method, which takes the dataset and fully-qualified name of the schema that the dataset is encoded with.
+
+.. [#topicnamestrategy] The alternative, default, convention is called the TopicNameStrategy where Schema Registry subject names are named after the Kafka topic with ``-key`` and ``-value`` suffixes. Whereas the RecordNameStrategy is designed for schemas that are shared between multiple topics, the TopicNameStrategy is designed for schemas that are unique to a single topic. Generally the RecordNameStrategy fits the Squarebot use case better and is a better logical fit for schema-oriented rather than topic-orient Kafka usage.
+
+The PydanticSchemaManager
+-------------------------
+
+The model for the RecordNameSchemaManager can be translated into the Pydantic model case with a new class in Kafkit_, ``PydanticSchemaManager``.
+Like its predecessor, ``PydanticSchemaManager`` should all Pydantic schemas with the Schema Registry.
+It should also have a ``serialize`` method, which takes a Pydantic model instance and returns a serialized Avro message (in this case, the dataset and schema arguments are one and the same thanks to how Pydantic model instances identify themselves).
+Unlike ``RecordNameSchemaManager``, the ``PydanticSchemaManager`` can also have a ``deserialize`` method, which takes a serialized Avro message and returns a Pydantic model instance.
+This enables both producing and consuming applications to use Pydantic models for type checking and validation (how Pydantic models are shared between codebases is discussed in :ref:`sharing-models`).
+
+Registering Pydantic models
+---------------------------
+
+Like the ``RecordNameSchemaManager``, the ``PydanticSchemaManager`` should register all of the schemas on application start-up.
+This ensures that schemas as pre-validated by the Schema Registry (particularly for issues of schema evolution compatibility) and that the schema IDs are cached for later use.
+As a convenience, the ``PydanticSchemaManager``\ 's ``serialize`` and ``deserialize`` methods could also automatically register or look-up schema IDs if they are not registered or cached.
+
+The simplest design for a registration API is a method that takes a collection of Pydantic model classes:
+
+.. code-block:: python
+
+   class PydanticSchemaManager:
+       async def register(self, models: Iterable[Type[AvroBaseModel]]) -> None:
+           ...
+
+An alternative system where individual ``AvroBaseModel`` instances are registered when they are declared with a class decorator would not work because these classes are shared between applications through a model library, where instances of ``PydanticSchemaManager`` are not available.
+
+The ``PydanticSchemaManager`` follows the RecordNameStrategy naming convention, where the fully-qualified name of the schema is the subject name in the Schema Registry.
+With `Dataclasses Avro Schema`_, the fully-qualified name of the schema is the ``namespace`` and ``schema_name`` fields in the Pydantic model ``Meta`` class:
+
+.. code-block:: python
+
+   class SquarebotMessage(AvroBaseModel):
+       class Meta:
+           namespace = "squarebot"
+           schema_name = "message"
+
+       user: Optional[str]
+       channel_type: ChannelType
+       channel_id: str
+       message_type: MessageType
+       message_id: str
+       message: str
+
+The ``RecordNameSchemaManager`` also has a ``suffix`` argument, configuration on its constructor, which is used to add a suffix to the subject name.
+This is useful when deploying an application in testing so that the test schemas don't interfere with the compatibility of the production schemas.
+The ``PydanticSchemaManager`` can also support this pattern.
+
+Serializing Pydantic datasets
+-----------------------------
+
+The ``PydanticSchemaManager``\ 's ``serialize`` method is straightforward to implement.
+It can use the ``serialize`` method of the ``AvroBaseModel`` class to serialize the dataset into an Avro message in conjunction's with Kafkit's existing function to add the schema ID to the encoded message's magic byte header:
+
+.. code-block:: python
+
+   class PydanticSchemaManager:
+       async def serialize(self, model: AvroBaseModel) -> bytes:
+           ...
+
+Deserializing into a Pydantic model
+-----------------------------------
+
+The ``PydanticSchemaManager``\ 's ``deserialize`` method will use the schema ID in the magic byte header to look up the schema in the Schema Registry.
+Based on the fully-qualified name of the Avro schema, the ``PydanticSchemaManager`` will deserialize message into the appropriate Pydantic model class:
+
+.. code-block:: python
+
+   class PydanticSchemaManager:
+       async def deserialize(self, message: bytes) -> AvroBaseModel:
+           ...
+
+Notice that this deserialization method can only guarantee that the returned object is a subclass of ``AvroBaseModel``.
+The application would need to assert the type of the returned object to properly operate on the message and have a type-safe interface.
+To simplify type checking in a consumer application, the ``PydanticSchemaManager`` should also support a deserialization method that, instead of returning a generic ``AvroBaseModel``, instead triggers a callback function that is associated with the Pydantic model class.
+In practice, such a routing system would not work on the PydanticSchemaManager itself since a Kafka message consists of information beyond the individual message that would weigh into the routing decision: namely the Kafka topic name, the parsed contents of the message value, and the parsed contents of the message key (both of which would be Pydantic types).
+A higher-level Kafka consumer class would be a better place to implement routing, and this discussed in :ref:`kafka-consumer`.
+
+.. _sharing-models:
+
+Sharing Pydantic models between applications
+============================================
+
+TK
+
+.. _kafka-consumer:
+
+A Kafka consumer class with Pydantic model-based routing
+========================================================
+
+TK
 
 .. _Kafkit: https://kafkit.lsst.io
 .. _Pydantic: https://docs.pydantic.dev

@@ -49,6 +49,12 @@ class SquarebotMessage(AvroBaseModel):
 
     event_ts: str = Field(description="When the event was dispatched.")
 
+    class Meta:
+        """Metadata for the model."""
+
+        namespace = "squarebot"
+        schema_name = "message"
+
 
 if __name__ == "__main__":
     avro_schema = json.loads(SquarebotMessage.avro_schema())
