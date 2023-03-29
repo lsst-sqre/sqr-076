@@ -151,6 +151,8 @@ It can use the ``serialize`` method of the ``AvroBaseModel`` class to serialize 
        async def serialize(self, model: AvroBaseModel) -> bytes:
            ...
 
+.. _deserialization:
+
 Deserializing into a Pydantic model
 -----------------------------------
 
@@ -193,7 +195,46 @@ This this case, the Pydantic model could either be defined in a separate library
 A Kafka consumer class with Pydantic model-based routing
 ========================================================
 
-TK
+As discussed in :ref:`deserialization`, consumer applications would be easier to develop if the consumer class automatically routed messages to the appropriate callback function based on the Pydantic model types of the message's key and value.
+Such a router would prevent consumer applications from having to write a series of ``isinstance`` checks to determine how to interact with message data.
+
+This consumer would essentially wrap the Kafka consumer class from existing libraries (like ``aiokafka.AIOKafkaConsumer``) and include a ``PydanticSchemaManager`` for deserializing message keys and values.
+Ideally the consumer should be implemented in a sans-I/O style so that it can be used with any asyncio-based Kafka library, including a mock consumer for testing.
+
+.. code-block:: python
+
+   class PydanticAIOKafkaConsumer:
+       def __init__(
+           self,
+           *,
+           schema_manager: PydanticSchemaManager,
+           consumer: AIOKafkaConsumer,
+       ) -> None:
+           ...
+
+       async def start(self) -> None:
+           """Start the consumer."""
+           ...
+
+       async def register_models(self, models: Iterable[Type[AvroBaseModel]]) -> None:
+           """Pre-register Pydantic models with the schema manager."""
+           ...
+
+       async def add_route(
+           self,
+           callback: Callable[[str, AvroBaseModel, AvroBaseModel], None],
+           topics: Sequence[str],
+           key_models: Sequence[str],
+           value_models: Sequence[str],
+       ) -> None:
+           ...
+
+Routing design
+--------------
+
+The ``add_route`` method takes a callback function, a list of Kafka topics, and a list of Pydantic model classes for the message key and value.
+This provides a simple selector for router messages to that callback function: if the topic is in the ``topics`` list, the key's model is in the ``key_models`` list, and the value's model is in the ``value_models`` list, then the callback function is called.
+Multiple callback functions could meet the same criteria; in this case, all matching callback functions would be called in the order they were registered.
 
 .. _Kafkit: https://kafkit.lsst.io
 .. _Pydantic: https://docs.pydantic.dev
