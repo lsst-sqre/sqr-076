@@ -174,7 +174,19 @@ A higher-level Kafka consumer class would be a better place to implement routing
 Sharing Pydantic models between applications
 ============================================
 
-TK
+In the model described by this technote, both the producer and consumer applications would use the same Pydantic models.
+This differs from our previous approach where the producer would retain "orignal" copies of the Avro schemas, and consumers would retrieve those schemas from the Schema Registry.
+In `SQR-075`_ we described a vertical monorepo development approach for sharing a library of Pydantic models between applications.
+The vertical monorepo is a perfect fit for Pydantic-driven Kafka applications, as it is for our Pydantic/FastAPI-based REST web services.
+
+Any Kafka producer application would adopt the vertical monorepo architecture where all Pydantic models are defined in a Python library package hosted in the same repostory as the producer application.
+This library package is published to PyPI and becomes a dependency of any consumer application.
+
+If the schemas are developed with "forward" compatibility, then the producer application can introduce changes to the changes to the schemas without breaking the consumer applications.
+Once the consumers update their dependency on the shared library package, they can start making use of new fields in the schema.
+
+Although it is not currently common in SQuaRE application, it is possible that multiple applications might produce messages with a common schema.
+This this case, the Pydantic model could either be defined in a separate library package that is shared between the producer applications, or a specific producer application could be designated as the owner of that Pydantic model so that the model would published from it's repository.
 
 .. _kafka-consumer:
 
@@ -187,3 +199,4 @@ TK
 .. _Pydantic: https://docs.pydantic.dev
 .. _`Dataclasses Avro Schema`: https://marcosschroh.github.io/dataclasses-avroschema/
 .. _`pydantic-avro`: https://github.com/godatadriven/pydantic-avro
+.. _`SQR-075`: https://sqr-075.lsst.io
