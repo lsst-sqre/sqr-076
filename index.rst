@@ -86,9 +86,9 @@ This design ensures that the Avro conversion is a detail that applications do no
 Analogy to the RecordNameSchemaManager
 --------------------------------------
 
-To integrate Pydantic models into Kafkit_, we can follow the pattern of Kafkit's `~kafkit.registry.manager.RecordNameSchemaManager`.
-The `~kafkit.registry.manager.RecordNameSchemaManager` is designed around the operational concept that a Kafka producer stores all of its schemas as Avro schema (JSON) files within the application package.
-`~kafkit.registry.manager.RecordNameSchemaManager` synchronzes those schemas with the Schema Registry following the RecordNameStrategy naming convention where the fully-qualified name of the schema is the subject name in the Schema Registry.\ [#topicnamestrategy]_ Then the producer application can serialize messages with the `~kafkit.registry.manager.RecordNameSchemaManager.serialize` method, which takes the dataset and fully-qualified name of the schema that the dataset is encoded with.
+To integrate Pydantic models into Kafkit_, we can follow the pattern of Kafkit's `RecordNameSchemaManager <https://kafkit.lsst.io/api/kafkit.registry.manager.RecordNameSchemaManager.html>`__.
+The ``RecordNameSchemaManager`` is designed around the operational concept that a Kafka producer stores all of its schemas as Avro schema (JSON) files within the application package.
+``RecordNameSchemaManager`` synchronzes those schemas with the Schema Registry following the RecordNameStrategy naming convention where the fully-qualified name of the schema is the subject name in the Schema Registry.\ [#topicnamestrategy]_ Then the producer application can serialize messages with the ``RecordNameSchemaManager.serialize`` method, which takes the dataset and fully-qualified name of the schema that the dataset is encoded with.
 
 .. [#topicnamestrategy] The alternative, default, convention is called the TopicNameStrategy where Schema Registry subject names are named after the Kafka topic with ``-key`` and ``-value`` suffixes. Whereas the RecordNameStrategy is designed for schemas that are shared between multiple topics, the TopicNameStrategy is designed for schemas that are unique to a single topic. Generally the RecordNameStrategy fits the Squarebot use case better and is a better logical fit for schema-oriented rather than topic-orient Kafka usage.
 

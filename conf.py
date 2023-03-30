@@ -15,3 +15,5 @@ extensions.append("documenteer.sphinxext")  # noqa: F405
 
 # https://github.com/mgaitan/sphinxcontrib-mermaid/issues/110
 mermaid_version = "9.4.0"
+
+default_role = "py:obj"  # noqa: F405
