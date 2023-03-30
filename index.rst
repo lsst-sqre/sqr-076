@@ -236,6 +236,8 @@ The ``add_route`` method takes a callback function, a list of Kafka topics, and 
 This provides a simple selector for router messages to that callback function: if the topic is in the ``topics`` list, the key's model is in the ``key_models`` list, and the value's model is in the ``value_models`` list, then the callback function is called.
 Multiple callback functions could meet the same criteria; in this case, all matching callback functions would be called in the order they were registered.
 
+The ``PydanticAIOKafkaConsumer`` should also have a set of default callbacks that are called when a message doesn't match any of the registered routes, or when a message can't be deserialized into any of the registered models to provide configurable error logging.
+
 .. _Kafkit: https://kafkit.lsst.io
 .. _Pydantic: https://docs.pydantic.dev
 .. _`Dataclasses Avro Schema`: https://marcosschroh.github.io/dataclasses-avroschema/
