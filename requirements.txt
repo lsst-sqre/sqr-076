@@ -1,7 +1,7 @@
-documenteer[technote]==0.8.0b1
+documenteer[technote]==1.0.0a8
 sphinxcontrib-mermaid
 tox
 pre-commit
-pydantic
-dataclasses-avroschema[pydantic]
+pydantic<2.0.0
+dataclasses-avroschema[pydantic]==0.50.0
 pydantic-avro
